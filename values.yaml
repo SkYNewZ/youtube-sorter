@@ -1,0 +1,28 @@
+image:
+  repository: docker.io/skynewz/youtube-sorter
+  pullPolicy: Always
+  tag: "latest"
+
+ingress:
+  enabled: true
+  className: nginx
+  hostSuffix: app.skynewz.dev
+  scheme: https
+
+resources:
+  limits:
+    cpu: 50m
+    memory: 32Mi
+  requests:
+    cpu: 10m
+    memory: 8Mi
+
+playlist:
+  id: "PLAPMtewfXSR41KRDyuAUpXAKSueYKieay"
+  reverse: true
+  dryRun: true
+  interval: 30m
+
+defaultLogLevel: debug
+clientCredentialsSecretName: credentials
+pushoverSecretName: pushover

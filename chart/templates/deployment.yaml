@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "chart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --interval={{ .Values.playlist.interval | default .Values.defaultSortInterval }}
+            - --playlist={{ required "You must specify .Values.playlist.id" .Values.playlist.id }}
+            - --client-credentials-file=/client_credentials.json
+            - --cache-dir=/cache
+            {{- if .Values.playlist.reverse }}
+            - --reverse
+            {{- end }}
+            {{- if .Values.playlist.dryRun }}
+            - --dry-run
+            {{- end }}
+            - --log-level={{ .Values.playlist.logLevel | default .Values.defaultLogLevel }}
+          env:
+            - name: PLAYLIST_ID
+              value: {{ .Values.playlist.id | quote }}
+            - name: REDIRECT_URI
+              value: "{{ .Values.ingress.scheme }}://{{ .Values.playlist.id | lower }}.{{ $.Values.ingress.hostSuffix }}"
+            {{- if .Values.pushoverSecretName }}
+            - name: PUSHOVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pushoverSecretName | quote }}
+                  key: token
+            - name: PUSHOVER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.pushoverSecretName | quote }}
+                  key: key
+            {{- end }}
+          volumeMounts:
+            - mountPath: /client_credentials.json
+              name: credentials
+              subPath: client_credentials.json
+              readOnly: true
+            - mountPath: /cache
+              name: cache-volume
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: credentials
+          secret:
+            secretName: {{ required ".Values.clientCredentialsSecretName is required" .Values.clientCredentialsSecretName }}
+        - name: cache-volume
+          emptyDir: { }
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
